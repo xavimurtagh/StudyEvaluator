@@ -99,10 +99,10 @@ python3 -m venv .venv
 
 # Optional: seed with the demo collagen verdict so you have something to
 # look at without hitting PubMed.
-PYTHONPATH=. .venv/bin/python scripts/seed_demo.py
+python scripts/seed_demo.py
 
 # Run the API
-PYTHONPATH=. .venv/bin/uvicorn api.main:app --reload --port 8001
+python scripts/run_api.py --reload
 ```
 
 ```bash

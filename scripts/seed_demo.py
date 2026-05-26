@@ -7,6 +7,10 @@ demo). Produces a verdict for 'collagen peptides' you can browse in the UI.
 from __future__ import annotations
 
 import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from api.db import init_db
 from api.jobs import _save_verdict
