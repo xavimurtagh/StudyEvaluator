@@ -1,0 +1,140 @@
+"""In-process job runner.
+
+For a real deployment swap this for Celery/Arq behind the same interface --
+the route handlers only call `submit` and `get_status`. Keeping it in-process
+means the demo runs with one command and no broker.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import uuid
+from datetime import datetime
+from typing import Awaitable, Callable
+
+from sqlmodel import select
+
+from api.db import Job, session
+from api.pipeline.run import analyze_product
+from api.schemas import JobStatus
+
+logger = logging.getLogger(__name__)
+
+
+_RUNNING: set[str] = set()
+
+
+def submit(query: str, max_studies: int, claims: list[str] | None) -> str:
+    job_id = uuid.uuid4().hex
+    with session() as s:
+        s.add(Job(job_id=job_id, query=query, state="queued"))
+        s.commit()
+    asyncio.get_event_loop().create_task(_run_job(job_id, query, max_studies, claims))
+    return job_id
+
+
+def get_status(job_id: str) -> JobStatus | None:
+    with session() as s:
+        job = s.get(Job, job_id)
+        if job is None:
+            return None
+        return JobStatus(
+            job_id=job.job_id,
+            state=job.state,  # type: ignore[arg-type]
+            progress=job.progress,
+            message=job.message,
+            slug=job.slug,
+        )
+
+
+async def _run_job(
+    job_id: str, query: str, max_studies: int, claims: list[str] | None
+) -> None:
+    if job_id in _RUNNING:
+        return
+    _RUNNING.add(job_id)
+
+    def on_progress(pct: float, msg: str) -> None:
+        _update(job_id, state="running", progress=pct, message=msg)
+
+    try:
+        _update(job_id, state="running", progress=0.0, message="Starting...")
+        verdict = await analyze_product(
+            query,
+            max_studies=max_studies,
+            claims_override=claims,
+            on_progress=on_progress,
+        )
+        _save_verdict(verdict)
+        _update(
+            job_id,
+            state="complete",
+            progress=1.0,
+            message="Done.",
+            slug=verdict.slug,
+        )
+    except Exception as exc:  # noqa: BLE001 - we want the message in the UI
+        logger.exception("Job %s failed", job_id)
+        _update(job_id, state="error", message=str(exc))
+    finally:
+        _RUNNING.discard(job_id)
+
+
+def _update(
+    job_id: str,
+    *,
+    state: str | None = None,
+    progress: float | None = None,
+    message: str | None = None,
+    slug: str | None = None,
+) -> None:
+    with session() as s:
+        job = s.get(Job, job_id)
+        if job is None:
+            return
+        if state is not None:
+            job.state = state
+        if progress is not None:
+            job.progress = progress
+        if message is not None:
+            job.message = message
+        if slug is not None:
+            job.slug = slug
+        job.updated_at = datetime.utcnow()
+        s.add(job)
+        s.commit()
+
+
+def _save_verdict(verdict) -> None:
+    from api.db import Product
+
+    with session() as s:
+        existing = s.get(Product, verdict.slug)
+        payload = verdict.model_dump_json()
+        if existing:
+            existing.verdict_json = payload
+            existing.last_analyzed = datetime.utcnow()
+            existing.pipeline_version = verdict.pipeline_version
+            existing.study_count = len(verdict.studies)
+            s.add(existing)
+        else:
+            s.add(
+                Product(
+                    slug=verdict.slug,
+                    name=verdict.product,
+                    pipeline_version=verdict.pipeline_version,
+                    verdict_json=payload,
+                    study_count=len(verdict.studies),
+                )
+            )
+        s.commit()
+
+
+def find_recent_product(slug: str) -> str | None:
+    from api.db import Product
+
+    with session() as s:
+        stmt = select(Product).where(Product.slug == slug)
+        p = s.exec(stmt).first()
+        return p.verdict_json if p else None

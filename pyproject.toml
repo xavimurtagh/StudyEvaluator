@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studyevaluator-api"
+version = "0.1.0"
+description = "Evidence-graded verdicts on health/wellness products"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["api", "api.pipeline", "api.routes"]
+
+[tool.pytest.ini_options]
+testpaths = ["api/tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

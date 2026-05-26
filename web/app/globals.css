@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: #fafaf9;
+  color: #0c0a09;
+}
+
+.grade-pill {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+.grade-strong       { @apply bg-green-100 text-green-900 ring-1 ring-green-200; }
+.grade-moderate     { @apply bg-lime-100 text-lime-900 ring-1 ring-lime-200; }
+.grade-weak         { @apply bg-yellow-100 text-yellow-900 ring-1 ring-yellow-200; }
+.grade-insufficient { @apply bg-stone-100 text-stone-700 ring-1 ring-stone-200; }
+.grade-contradicted { @apply bg-red-100 text-red-900 ring-1 ring-red-200; }
+
+.severity-info     { @apply bg-blue-50 text-blue-900 ring-1 ring-blue-200; }
+.severity-warning  { @apply bg-amber-50 text-amber-900 ring-1 ring-amber-200; }
+.severity-critical { @apply bg-red-50 text-red-900 ring-1 ring-red-200; }
