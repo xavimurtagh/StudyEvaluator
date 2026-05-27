@@ -26,11 +26,14 @@ _RUNNING: set[str] = set()
 
 
 def submit(query: str, max_studies: int, claims: list[str] | None) -> str:
+    """Submit a job. Must be called from inside the running event loop
+    (i.e. from an async route handler) so asyncio.create_task can attach
+    to it."""
     job_id = uuid.uuid4().hex
     with session() as s:
         s.add(Job(job_id=job_id, query=query, state="queued"))
         s.commit()
-    asyncio.get_event_loop().create_task(_run_job(job_id, query, max_studies, claims))
+    asyncio.create_task(_run_job(job_id, query, max_studies, claims))
     return job_id
 
 

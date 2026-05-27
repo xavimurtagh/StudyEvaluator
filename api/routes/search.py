@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.post("/search", response_model=JobStatus)
-def search(req: SearchRequest) -> JobStatus:
+async def search(req: SearchRequest) -> JobStatus:
     # If we already have a recent verdict, skip the job entirely.
     slug = slugify(req.query)
     cached = jobs.find_recent_product(slug)
