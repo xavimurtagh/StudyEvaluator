@@ -9,11 +9,17 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from sqlmodel import Field, SQLModel, Session, create_engine
 
-DB_URL = os.environ.get("STUDYEVAL_DB_URL", "sqlite:///./studyeval.db")
+# Anchor the default DB path to the repo root (parent of the `api/` package)
+# so the file lands in the same place regardless of which directory the
+# server was launched from. Override with STUDYEVAL_DB_URL if you want.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_DEFAULT_DB_PATH = _REPO_ROOT / "studyeval.db"
+DB_URL = os.environ.get("STUDYEVAL_DB_URL", f"sqlite:///{_DEFAULT_DB_PATH.as_posix()}")
 
 engine = create_engine(
     DB_URL,
