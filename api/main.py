@@ -5,8 +5,10 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api import watcher
 from api.db import init_db
 from api.routes.search import router as search_router
+from api.routes.watches import router as watches_router
 
 app = FastAPI(
     title="StudyEvaluator API",
@@ -32,8 +34,15 @@ app.add_middleware(
 
 
 @app.on_event("startup")
-def on_startup() -> None:
+async def on_startup() -> None:
     init_db()
+    if os.environ.get("STUDYEVAL_DISABLE_WATCHER") != "1":
+        watcher.start()
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    await watcher.stop()
 
 
 @app.get("/healthz")
@@ -42,3 +51,4 @@ def healthz() -> dict[str, str]:
 
 
 app.include_router(search_router, prefix="/api")
+app.include_router(watches_router, prefix="/api")

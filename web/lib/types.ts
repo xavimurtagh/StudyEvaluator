@@ -59,6 +59,18 @@ export interface CheckClaimResponse {
   job: JobStatus;
 }
 
+export interface WatchView {
+  id: number;
+  slug: string;
+  name: string;
+  created_at: string;
+  last_checked_at: string;
+  last_study_count: number;
+  has_new: boolean;
+  new_since_seen: number;
+  overall_grade: EvidenceGrade;
+}
+
 export interface ExtractedStudy {
   pmid: string;
   title: string;

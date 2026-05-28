@@ -67,6 +67,24 @@ def classify_design(record: RawRecord) -> StudyDesign:
     return StudyDesign.UNKNOWN
 
 
+# PubMed uses these publication types to flag retracted work and notices.
+RETRACTION_PUBTYPES = {
+    "Retracted Publication",
+    "Retraction of Publication",
+    "Expression of Concern",
+}
+
+
+def detect_retraction(record: RawRecord) -> bool:
+    if any(pt in RETRACTION_PUBTYPES for pt in record.publication_types):
+        return True
+    # Catch retraction notices that slipped through pubtype tagging.
+    title_low = (record.title or "").lower()
+    if title_low.startswith(("retraction:", "retracted:", "withdrawn:")):
+        return True
+    return False
+
+
 # --- Population / sample size / duration ------------------------------------
 
 # Avoid matching CIs ("95% CI"), p-values, or doses ("100 mg").
@@ -353,5 +371,6 @@ def extract(record: RawRecord) -> ExtractedStudy:
         industry_funded=detect_industry_funding(record),
         conflict_of_interest=detect_conflict_of_interest(record),
         human_subjects=detect_human(text, design),
+        retracted=detect_retraction(record),
         findings=extract_findings(record.abstract),
     )

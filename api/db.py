@@ -108,6 +108,23 @@ class Job(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class Watch(SQLModel, table=True):
+    """A user-watched product. The frontend generates an anonymous client_id
+    on first visit (UUID stored in localStorage) and includes it on every
+    watch API call -- no auth required, but watches stay scoped to one
+    browser/device. Replace client_id with a real user_id when auth lands."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    client_id: str = Field(index=True)
+    slug: str = Field(index=True)
+    name: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_checked_at: datetime = Field(default_factory=datetime.utcnow)
+    last_study_count: int = 0
+    has_new: bool = False
+    new_since_seen: int = 0
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
 

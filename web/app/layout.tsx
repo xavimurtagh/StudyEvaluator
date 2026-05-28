@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { WatchBell } from "@/components/WatchBell";
+
 export const metadata: Metadata = {
   title: "StudyEvaluator — what the studies actually say",
   description:
@@ -34,6 +36,7 @@ export default function RootLayout({
               >
                 Why this exists
               </a>
+              <WatchBell />
             </nav>
           </div>
         </header>

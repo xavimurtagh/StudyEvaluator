@@ -8,6 +8,7 @@ import { ClaimCard } from "@/components/ClaimCard";
 import { GradePill } from "@/components/GradePill";
 import { RedFlags } from "@/components/RedFlags";
 import { StudyCard } from "@/components/StudyCard";
+import { WatchButton } from "@/components/WatchButton";
 import { getJob, getProduct } from "@/lib/api";
 import { GRADE_BLURB } from "@/lib/format";
 import type { JobStatus, ProductVerdict } from "@/lib/types";
@@ -109,11 +110,14 @@ export default function ProductPage() {
       </Link>
 
       <section className="space-y-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="text-3xl font-semibold tracking-tight capitalize md:text-4xl">
-            {verdict.product}
-          </h1>
-          <GradePill grade={verdict.overall_grade} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold tracking-tight capitalize md:text-4xl">
+              {verdict.product}
+            </h1>
+            <GradePill grade={verdict.overall_grade} />
+          </div>
+          <WatchButton slug={verdict.slug} />
         </div>
         <p className="text-lg text-muted">{verdict.summary}</p>
         <p className="text-sm text-muted">

@@ -3,6 +3,7 @@ import type {
   JobStatus,
   ProductListEntry,
   ProductVerdict,
+  WatchView,
 } from "./types";
 
 const API = "/api";
@@ -48,5 +49,53 @@ export async function getProduct(slug: string): Promise<ProductVerdict> {
 export async function listProducts(): Promise<ProductListEntry[]> {
   const res = await fetch(`${API}/products`, { cache: "no-store" });
   if (!res.ok) return [];
+  return res.json();
+}
+
+export async function listWatches(clientId: string): Promise<WatchView[]> {
+  if (!clientId) return [];
+  const res = await fetch(
+    `${API}/watches?client_id=${encodeURIComponent(clientId)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createWatch(
+  clientId: string,
+  slug: string,
+): Promise<WatchView> {
+  const res = await fetch(`${API}/watches`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: clientId, slug }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Could not watch: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteWatch(
+  clientId: string,
+  id: number,
+): Promise<void> {
+  await fetch(
+    `${API}/watches/${id}?client_id=${encodeURIComponent(clientId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function markWatchSeen(
+  clientId: string,
+  id: number,
+): Promise<WatchView | null> {
+  const res = await fetch(
+    `${API}/watches/${id}/seen?client_id=${encodeURIComponent(clientId)}`,
+    { method: "POST" },
+  );
+  if (!res.ok) return null;
   return res.json();
 }

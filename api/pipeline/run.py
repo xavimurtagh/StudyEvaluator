@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -19,6 +21,8 @@ from api.pipeline.claims import derive_claims
 from api.pipeline.extract import extract
 from api.pipeline.ingest import RawRecord, ingest
 from api.pipeline.quality import default_scorer
+from api.pipeline.retraction import find_retracted_dois
+from api.pipeline.semantic_scholar import dedupe_records, ingest_s2
 from api.schemas import (
     ClaimEvidenceLink,
     ExtractedStudy,
@@ -26,6 +30,11 @@ from api.schemas import (
     ScoredStudy,
 )
 
+
+# Per-source toggles. Useful for tests and for users whose network can
+# only reach one provider (sandboxed environments, locked-down corp nets).
+USE_S2 = os.environ.get("STUDYEVAL_USE_S2", "1") == "1"
+USE_CROSSREF = os.environ.get("STUDYEVAL_USE_CROSSREF", "1") == "1"
 
 ProgressCb = Callable[[float, str], None]
 
@@ -43,14 +52,39 @@ async def analyze_product(
         if on_progress:
             on_progress(pct, msg)
 
-    report(0.05, "Fetching studies from PubMed...")
-    records = (
-        records_override
-        if records_override is not None
-        else await ingest(product, max_studies=max_studies)
-    )
-    report(0.30, f"Extracting features from {len(records)} studies...")
+    report(0.05, "Fetching studies from PubMed and Semantic Scholar...")
+    if records_override is not None:
+        records = records_override
+    else:
+        # Hit both sources in parallel. S2 is a backstop -- if it fails or
+        # is disabled we still have PubMed.
+        pubmed_task = asyncio.create_task(ingest(product, max_studies=max_studies))
+        if USE_S2:
+            s2_task = asyncio.create_task(
+                ingest_s2(product, max_studies=max_studies)
+            )
+            pm_recs, s2_recs = await asyncio.gather(pubmed_task, s2_task)
+        else:
+            pm_recs = await pubmed_task
+            s2_recs = []
+        records = dedupe_records(pm_recs + s2_recs)
+
+    report(0.25, f"Extracting features from {len(records)} studies...")
     extracted: list[ExtractedStudy] = [extract(r) for r in records]
+
+    # Cross-check for retractions CrossRef knows about that PubMed may not
+    # have flagged via the pubtype yet. Best-effort: failures don't block.
+    if USE_CROSSREF and records_override is None:
+        report(0.40, "Cross-checking for retractions...")
+        dois = [e.doi for e in extracted if e.doi and not e.retracted]
+        try:
+            retracted_dois = await find_retracted_dois(dois)
+        except Exception:
+            retracted_dois = set()
+        if retracted_dois:
+            for e in extracted:
+                if e.doi and e.doi.lower() in {d.lower() for d in retracted_dois}:
+                    e.retracted = True
 
     report(0.50, "Scoring study quality...")
     scorer = default_scorer()

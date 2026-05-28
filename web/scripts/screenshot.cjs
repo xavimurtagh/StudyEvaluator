@@ -10,9 +10,15 @@ const path = require("path");
   await page.setViewport({ width: 1280, height: 1100, deviceScaleFactor: 2 });
   const outDir = path.resolve(__dirname, "../../screens");
 
+  // Pre-seed the client_id in localStorage so existing watches show up.
+  await page.goto("http://127.0.0.1:3000/", { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    localStorage.setItem("studyeval:client_id", "demo-id");
+  });
+
   async function shot(url, out, fn) {
     await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 1000));
     if (fn) {
       await fn(page);
       await new Promise((r) => setTimeout(r, 500));
@@ -21,40 +27,11 @@ const path = require("path");
     console.log("wrote", out);
   }
 
-  await shot("http://127.0.0.1:3000/", "home.png");
-  await shot("http://127.0.0.1:3000/", "home_claim_mode.png", async (p) => {
-    await p.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll("button"));
-      const claimBtn = btns.find((b) => (b.textContent || "").trim() === "Check a claim");
-      if (claimBtn) claimBtn.click();
-    });
-  });
+  await shot("http://127.0.0.1:3000/", "home_with_bell.png");
+  await shot("http://127.0.0.1:3000/watches", "watches.png");
   await shot(
     "http://127.0.0.1:3000/product/collagen-peptides",
-    "product_top.png",
-  );
-  await shot(
-    "http://127.0.0.1:3000/product/collagen-peptides?highlight=improves+skin+hydration",
-    "product_highlighted.png",
-  );
-  await shot(
-    "http://127.0.0.1:3000/product/collagen-peptides",
-    "product_study_with_findings.png",
-    async (p) => {
-      await p.evaluate(() => {
-        const h2 = Array.from(document.querySelectorAll("h2")).find((h) =>
-          (h.textContent || "").startsWith("All studies"),
-        );
-        h2 && h2.scrollIntoView({ behavior: "instant", block: "start" });
-      });
-      await new Promise((r) => setTimeout(r, 200));
-      await p.evaluate(() => {
-        const b = Array.from(document.querySelectorAll("button")).find((b) =>
-          (b.textContent || "").startsWith("Show quality breakdown"),
-        );
-        b && b.click();
-      });
-    },
+    "product_with_watch.png",
   );
 
   await browser.close();
