@@ -49,3 +49,28 @@ def test_pre_registered_rct_rewarded():
     a = scorer.score(prereg_rct)
     assert any("Pre-registered" in r for r in a.reasons)
     assert a.subscores.risk_of_bias > 0.6
+
+
+def test_default_scorer_uses_ml_when_artifact_present(tmp_path, monkeypatch):
+    """When models/quality_v1.joblib exists, the pipeline picks the ML scorer."""
+    import joblib
+    import numpy as np
+    from sklearn.ensemble import GradientBoostingClassifier
+
+    from api.pipeline import quality as q
+
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    artifact = model_dir / "quality_v1.joblib"
+
+    # Train a trivial 1-tree model so loading succeeds.
+    X = np.random.RandomState(0).randn(50, len(q.FEATURE_NAMES))
+    y = (X[:, 0] > 0).astype(int)
+    m = GradientBoostingClassifier(n_estimators=5, max_depth=1, random_state=0)
+    m.fit(X, y)
+    joblib.dump(m, artifact)
+
+    monkeypatch.setattr(q, "MODEL_PATH", artifact)
+    scorer = q.default_scorer()
+    assert isinstance(scorer, q.MLQualityScorer)
+    assert scorer.model is not None
