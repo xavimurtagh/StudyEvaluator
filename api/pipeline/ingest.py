@@ -195,8 +195,15 @@ async def ingest(
         client = httpx.AsyncClient(headers={"User-Agent": USER_AGENT})
     try:
         pmids = await search_pmids(client, build_query(product), max_studies)
-        # E-utilities is happiest with batches of <=200; we're well under.
-        return await fetch_records(client, pmids)
+        # E-utilities caps efetch at ~200 PMIDs per request. Above that we
+        # batch in parallel; below, one round-trip.
+        if len(pmids) <= 200:
+            return await fetch_records(client, pmids)
+        batches = list(chunk(pmids, 200))
+        results = await asyncio.gather(
+            *(fetch_records(client, b) for b in batches)
+        )
+        return [r for batch in results for r in batch]
     finally:
         if own_client:
             await client.aclose()
