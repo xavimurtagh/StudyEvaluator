@@ -73,10 +73,61 @@ export function StudyCard({ s }: { s: ScoredStudy }) {
               <li key={i}>{r}</li>
             ))}
           </ul>
+          {e.findings.length > 0 && (
+            <div className="pt-2">
+              <h5 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                Findings extracted from the abstract
+              </h5>
+              <ul className="space-y-1">
+                {e.findings.map((f, i) => (
+                  <li
+                    key={i}
+                    className="flex gap-2 border-l-2 border-stone-200 pl-2"
+                  >
+                    <DirectionDot dir={f.direction} />
+                    <div className="flex-1">
+                      <p className="text-stone-700">{f.text}</p>
+                      {f.effect_size && (
+                        <span className="mt-0.5 inline-block rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-700">
+                          {f.effect_size}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p className="pt-1 text-xs text-muted">Scoring model: {q.model_version}</p>
         </div>
       )}
     </article>
+  );
+}
+
+function DirectionDot({
+  dir,
+}: {
+  dir: "positive" | "null" | "negative";
+}) {
+  const cls =
+    dir === "positive"
+      ? "bg-green-500"
+      : dir === "negative"
+      ? "bg-red-500"
+      : "bg-stone-400";
+  const title =
+    dir === "positive"
+      ? "Positive finding"
+      : dir === "negative"
+      ? "Negative finding"
+      : "Null finding";
+  return (
+    <span
+      aria-label={title}
+      title={title}
+      className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${cls}`}
+    />
   );
 }
 

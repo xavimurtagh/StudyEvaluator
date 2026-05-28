@@ -141,3 +141,34 @@ def find_recent_product(slug: str) -> str | None:
         stmt = select(Product).where(Product.slug == slug)
         p = s.exec(stmt).first()
         return p.verdict_json if p else None
+
+
+def list_recent_products(limit: int = 12) -> list[dict]:
+    """Return summary rows for the most-recently-analyzed products.
+
+    We pull the overall_grade from the cached verdict JSON rather than
+    storing it as a separate column -- avoids schema churn and the verdict
+    is the source of truth anyway.
+    """
+    import json
+
+    from api.db import Product
+
+    out: list[dict] = []
+    with session() as s:
+        stmt = select(Product).order_by(Product.last_analyzed.desc()).limit(limit)
+        for p in s.exec(stmt).all():
+            try:
+                grade = json.loads(p.verdict_json).get("overall_grade", "insufficient")
+            except (ValueError, AttributeError):
+                grade = "insufficient"
+            out.append(
+                {
+                    "slug": p.slug,
+                    "name": p.name,
+                    "overall_grade": grade,
+                    "study_count": p.study_count,
+                    "last_analyzed": p.last_analyzed.isoformat(),
+                }
+            )
+    return out

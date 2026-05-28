@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { GradePill } from "./GradePill";
 import type {
@@ -12,16 +12,30 @@ import type {
 export function ClaimCard({
   claim,
   studiesByPmid,
+  highlighted = false,
 }: {
   claim: ClaimVerdict;
   studiesByPmid: Record<string, ScoredStudy>;
+  highlighted?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(highlighted);
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (highlighted && ref.current) {
+      ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlighted]);
   const sup = claim.supporting_studies;
   const con = claim.contradicting_studies;
 
   return (
-    <article className="rounded-xl border border-line bg-white p-6">
+    <article
+      ref={ref}
+      className={`rounded-xl border bg-white p-6 transition ${
+        highlighted ? "border-accent ring-2 ring-accent/20" : "border-line"
+      }`}
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <h3 className="text-lg font-medium capitalize">{claim.claim}</h3>
         <GradePill grade={claim.grade} />
@@ -111,6 +125,16 @@ function LinkList({
               {l.quote && (
                 <blockquote className="mt-1 border-l border-stone-300 pl-2 italic text-stone-600">
                   “{l.quote}”
+                  {(() => {
+                    const f = s.extracted.findings.find(
+                      (f) => f.text === l.quote,
+                    );
+                    return f?.effect_size ? (
+                      <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-xs not-italic text-stone-700">
+                        {f.effect_size}
+                      </span>
+                    ) : null;
+                  })()}
                 </blockquote>
               )}
             </li>

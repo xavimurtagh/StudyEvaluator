@@ -16,6 +16,7 @@ export default function ProductPage() {
   const params = useParams<{ slug: string }>();
   const search = useSearchParams();
   const jobId = search.get("job");
+  const highlight = (search.get("highlight") ?? "").trim().toLowerCase();
   const slug = params.slug;
 
   const [verdict, setVerdict] = useState<ProductVerdict | null>(null);
@@ -139,6 +140,10 @@ export default function ProductPage() {
               key={c.claim}
               claim={c}
               studiesByPmid={studiesByPmid}
+              highlighted={
+                highlight !== "" &&
+                c.claim.trim().toLowerCase() === highlight
+              }
             />
           ))}
         </div>

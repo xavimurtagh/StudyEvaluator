@@ -41,6 +41,22 @@ export interface QualityAssessment {
 export interface ExtractedFinding {
   text: string;
   direction: "positive" | "null" | "negative";
+  effect_size: string | null;
+}
+
+export interface ProductListEntry {
+  slug: string;
+  name: string;
+  overall_grade: EvidenceGrade;
+  study_count: number;
+  last_analyzed: string;
+}
+
+export interface CheckClaimResponse {
+  subject: string;
+  predicate: string;
+  raw: string;
+  job: JobStatus;
 }
 
 export interface ExtractedStudy {

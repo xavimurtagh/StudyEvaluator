@@ -256,6 +256,46 @@ NEGATIVE_HINTS = (
 )
 
 
+# Effect-size patterns. Order matters -- we keep the first/longest match.
+EFFECT_SIZE_PATTERNS = [
+    re.compile(
+        r"\bby\s+\d+(?:\.\d+)?\s*(?:%|percent|points?|fold|times|mg|g|kg|cm|mm|inches|lbs)"
+        r"(?:\s*\([^)]*\))?",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b\d+(?:\.\d+)?\s*%\s*(?:improvement|reduction|increase|decrease)", re.IGNORECASE),
+    re.compile(r"\b\d+(?:\.\d+)?-fold\s+(?:increase|decrease|improvement)\b", re.IGNORECASE),
+    re.compile(r"\b95\s*%?\s*CI[:\s]*[-\d.,\s]+(?:to|-|–)\s*[-\d.]+\)?", re.IGNORECASE),
+    re.compile(r"\bp\s*[<=>]\s*0?\.\d+\b", re.IGNORECASE),
+    re.compile(r"\bHR\s*[:=]?\s*\d+(?:\.\d+)?(?:\s*\([^)]+\))?", re.IGNORECASE),
+    re.compile(r"\bOR\s*[:=]?\s*\d+(?:\.\d+)?(?:\s*\([^)]+\))?", re.IGNORECASE),
+]
+
+
+def extract_effect_size(sentence: str) -> str | None:
+    """Pull the most informative effect-size phrase out of a sentence.
+
+    We concatenate the magnitude phrase ('improved by 12%') with the
+    statistical qualifier ('p<0.01' / '95% CI 5-19%') when both are
+    present, so the UI can show one human-readable snippet.
+    """
+    magnitude: str | None = None
+    qualifier: str | None = None
+    for pat in EFFECT_SIZE_PATTERNS[:3]:
+        m = pat.search(sentence)
+        if m:
+            magnitude = m.group(0).strip()
+            break
+    for pat in EFFECT_SIZE_PATTERNS[3:]:
+        m = pat.search(sentence)
+        if m:
+            qualifier = m.group(0).strip()
+            break
+    if magnitude and qualifier and qualifier not in magnitude:
+        return f"{magnitude} ({qualifier})"
+    return magnitude or qualifier
+
+
 def split_sentences(text: str) -> list[str]:
     if not text:
         return []
@@ -268,12 +308,22 @@ def extract_findings(abstract: str) -> list[ExtractedFinding]:
     out: list[ExtractedFinding] = []
     for sent in split_sentences(abstract):
         low = sent.lower()
+        direction: str | None
         if any(h in low for h in NEGATIVE_HINTS):
-            out.append(ExtractedFinding(text=sent, direction="negative"))
+            direction = "negative"
         elif any(h in low for h in NULL_HINTS):
-            out.append(ExtractedFinding(text=sent, direction="null"))
+            direction = "null"
         elif any(h in low for h in POSITIVE_HINTS):
-            out.append(ExtractedFinding(text=sent, direction="positive"))
+            direction = "positive"
+        else:
+            continue
+        out.append(
+            ExtractedFinding(
+                text=sent,
+                direction=direction,  # type: ignore[arg-type]
+                effect_size=extract_effect_size(sent),
+            )
+        )
     return out[:8]
 
 

@@ -112,6 +112,13 @@ class ExtractedStudy(BaseModel):
 class ExtractedFinding(BaseModel):
     text: str
     direction: Literal["positive", "null", "negative"] = "positive"
+    effect_size: str | None = Field(
+        default=None,
+        description=(
+            "Plain-text effect-size snippet pulled from the sentence "
+            '(e.g. "improved by 12% (p<0.01)") when one was reported.'
+        ),
+    )
 
 
 class ScoredStudy(BaseModel):

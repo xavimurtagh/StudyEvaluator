@@ -23,9 +23,9 @@ def make_corpus() -> list[RawRecord]:
                 "Background: Collagen supplementation has gained popularity. "
                 "Methods: We randomized 120 healthy women to 10 g/day collagen "
                 "peptides or placebo for 12 weeks. Outcomes were skin elasticity "
-                "and hydration. Results: Collagen significantly improved skin "
-                "elasticity compared to placebo (p<0.01). Hydration also "
-                "increased significantly in the treatment group. Conclusions: "
+                "and hydration. Results: Skin elasticity improved by 12% in the "
+                "collagen group vs placebo (p<0.01). Hydration also increased "
+                "significantly in the treatment group by 18% (95% CI 8-28%). Conclusions: "
                 "Daily collagen peptides improved skin elasticity in healthy women. "
                 "Registered at ClinicalTrials.gov NCT01234567."
             ),
@@ -44,7 +44,8 @@ def make_corpus() -> list[RawRecord]:
             title="Collagen peptides reduce joint pain in athletes: a pilot study",
             abstract=(
                 "Twenty-two athletes received 5 g/day collagen for 24 weeks. "
-                "Joint pain scores improved significantly. Funded by HealthCorp "
+                "Joint pain scores improved significantly, decreasing by 23% "
+                "(p=0.04). Funded by HealthCorp "
                 "Pharmaceuticals Inc."
             ),
             journal="Open Sports Nutrition",
@@ -122,8 +123,8 @@ def make_corpus() -> list[RawRecord]:
             ),
             abstract=(
                 "Two hundred adults were randomized to collagen or placebo for "
-                "8 weeks. Skin hydration improved significantly in the treatment "
-                "group. No significant difference was observed in elasticity. "
+                "8 weeks. Skin hydration improved by 14% in the treatment "
+                "group (p=0.002). No significant difference was observed in elasticity. "
                 "Pre-registered on ClinicalTrials.gov."
             ),
             journal="Nutrients",
