@@ -23,6 +23,7 @@ from api.pipeline.ingest import RawRecord, ingest
 from api.pipeline.quality import default_scorer
 from api.pipeline.retraction import find_retracted_dois
 from api.pipeline.semantic_scholar import dedupe_records, ingest_s2
+from api.pipeline.synonyms import expand_query
 from api.schemas import (
     ClaimEvidenceLink,
     ExtractedStudy,
@@ -52,16 +53,18 @@ async def analyze_product(
         if on_progress:
             on_progress(pct, msg)
 
+    expanded = expand_query(product)
+    search_term = expanded.canonical
     report(0.05, "Fetching studies from PubMed and Semantic Scholar...")
     if records_override is not None:
         records = records_override
     else:
         # Hit both sources in parallel. S2 is a backstop -- if it fails or
         # is disabled we still have PubMed.
-        pubmed_task = asyncio.create_task(ingest(product, max_studies=max_studies))
+        pubmed_task = asyncio.create_task(ingest(search_term, max_studies=max_studies))
         if USE_S2:
             s2_task = asyncio.create_task(
-                ingest_s2(product, max_studies=max_studies)
+                ingest_s2(search_term, max_studies=max_studies)
             )
             pm_recs, s2_recs = await asyncio.gather(pubmed_task, s2_task)
         else:
@@ -120,14 +123,16 @@ async def analyze_product(
         red_flags=red_flags,
         generated_at=datetime.now(timezone.utc).isoformat(),
         pipeline_version=PIPELINE_VERSION,
-        notes=_global_notes(scored, claim_verdicts),
+        notes=_global_notes(scored, claim_verdicts, expanded.expansions),
     )
     report(1.0, "Done.")
     return verdict
 
 
-def _global_notes(scored, claim_verdicts) -> list[str]:
+def _global_notes(scored, claim_verdicts, expansions: list[str] | None = None) -> list[str]:
     notes: list[str] = []
+    for note in expansions or []:
+        notes.append(note)
     if len(scored) < 5:
         notes.append(
             "Small corpus -- the verdict here is preliminary. Treat with caution."

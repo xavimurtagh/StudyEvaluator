@@ -44,12 +44,11 @@ def build_query(product: str) -> str:
 
     We don't restrict by publication type here -- we want to see weak evidence
     too, so we can score it as weak rather than pretend it doesn't exist.
+    Lay terms are mapped to biomedical equivalents via ``synonyms.expand_query``.
     """
-    p = product.strip()
-    # Quote multi-word terms; let single words use stemming.
-    if " " in p:
-        return f'"{p}"[Title/Abstract] OR "{p}"[MeSH Terms]'
-    return f"{p}[Title/Abstract] OR {p}[MeSH Terms]"
+    from api.pipeline.synonyms import expand_query
+
+    return expand_query(product).pubmed_query
 
 
 async def search_pmids(
