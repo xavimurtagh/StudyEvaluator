@@ -7,6 +7,7 @@ import type {
 } from "./types";
 
 const API = "/api";
+const CREDS: RequestCredentials = "include";
 
 export async function submitSearch(
   query: string,
@@ -16,6 +17,7 @@ export async function submitSearch(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, claims }),
+    credentials: CREDS,
   });
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
   return res.json();
@@ -26,6 +28,7 @@ export async function checkClaim(text: string): Promise<CheckClaimResponse> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
+    credentials: CREDS,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -35,41 +38,48 @@ export async function checkClaim(text: string): Promise<CheckClaimResponse> {
 }
 
 export async function getJob(jobId: string): Promise<JobStatus> {
-  const res = await fetch(`${API}/jobs/${jobId}`, { cache: "no-store" });
+  const res = await fetch(`${API}/jobs/${jobId}`, { cache: "no-store", credentials: CREDS });
   if (!res.ok) throw new Error(`Job not found: ${res.status}`);
   return res.json();
 }
 
 export async function getProduct(slug: string): Promise<ProductVerdict> {
-  const res = await fetch(`${API}/products/${slug}`, { cache: "no-store" });
+  const res = await fetch(`${API}/products/${slug}`, { cache: "no-store", credentials: CREDS });
   if (!res.ok) throw new Error(`Product not found: ${res.status}`);
   return res.json();
 }
 
 export async function listProducts(): Promise<ProductListEntry[]> {
-  const res = await fetch(`${API}/products`, { cache: "no-store" });
+  const res = await fetch(`${API}/products`, { cache: "no-store", credentials: CREDS });
   if (!res.ok) return [];
   return res.json();
 }
 
-export async function listWatches(clientId: string): Promise<WatchView[]> {
-  if (!clientId) return [];
-  const res = await fetch(
-    `${API}/watches?client_id=${encodeURIComponent(clientId)}`,
-    { cache: "no-store" },
-  );
+function watchUrl(path: string, clientId?: string | null): string {
+  const qs = clientId
+    ? `${path.includes("?") ? "&" : "?"}client_id=${encodeURIComponent(clientId)}`
+    : "";
+  return `${API}${path}${qs}`;
+}
+
+export async function listWatches(clientId?: string | null): Promise<WatchView[]> {
+  const res = await fetch(watchUrl("/watches", clientId), {
+    cache: "no-store",
+    credentials: CREDS,
+  });
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function createWatch(
-  clientId: string,
+  clientId: string | null,
   slug: string,
 ): Promise<WatchView> {
   const res = await fetch(`${API}/watches`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ client_id: clientId, slug }),
+    body: JSON.stringify({ client_id: clientId ?? undefined, slug }),
+    credentials: CREDS,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -79,23 +89,55 @@ export async function createWatch(
 }
 
 export async function deleteWatch(
-  clientId: string,
+  clientId: string | null,
   id: number,
 ): Promise<void> {
-  await fetch(
-    `${API}/watches/${id}?client_id=${encodeURIComponent(clientId)}`,
-    { method: "DELETE" },
-  );
+  await fetch(watchUrl(`/watches/${id}`, clientId), {
+    method: "DELETE",
+    credentials: CREDS,
+  });
 }
 
 export async function markWatchSeen(
-  clientId: string,
+  clientId: string | null,
   id: number,
 ): Promise<WatchView | null> {
-  const res = await fetch(
-    `${API}/watches/${id}/seen?client_id=${encodeURIComponent(clientId)}`,
-    { method: "POST" },
-  );
+  const res = await fetch(watchUrl(`/watches/${id}/seen`, clientId), {
+    method: "POST",
+    credentials: CREDS,
+  });
   if (!res.ok) return null;
   return res.json();
+}
+
+export interface Me {
+  id: number;
+  email: string;
+}
+
+export async function getMe(): Promise<Me | null> {
+  const res = await fetch(`${API}/me`, { cache: "no-store", credentials: CREDS });
+  if (res.status === 401) return null;
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function requestMagicLink(
+  email: string,
+  clientId: string | null,
+): Promise<void> {
+  const res = await fetch(`${API}/auth/request-link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, client_id: clientId ?? undefined }),
+    credentials: CREDS,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Could not send link: ${res.status}`);
+  }
+}
+
+export async function signOut(): Promise<void> {
+  await fetch(`${API}/auth/logout`, { method: "POST", credentials: CREDS });
 }

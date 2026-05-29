@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { UserMenu } from "@/components/UserMenu";
 import { WatchBell } from "@/components/WatchBell";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default function RootLayout({
                 Why this exists
               </a>
               <WatchBell />
+              <UserMenu />
             </nav>
           </div>
         </header>

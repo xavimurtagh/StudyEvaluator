@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api import watcher
 from api.db import init_db
+from api.routes.auth import router as auth_router
 from api.routes.search import router as search_router
 from api.routes.watches import router as watches_router
 
@@ -28,6 +29,8 @@ origins = os.environ.get(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^chrome-extension://.*$",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -50,5 +53,6 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+app.include_router(auth_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(watches_router, prefix="/api")

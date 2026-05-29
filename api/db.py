@@ -109,13 +109,20 @@ class Job(SQLModel, table=True):
 
 
 class Watch(SQLModel, table=True):
-    """A user-watched product. The frontend generates an anonymous client_id
-    on first visit (UUID stored in localStorage) and includes it on every
-    watch API call -- no auth required, but watches stay scoped to one
-    browser/device. Replace client_id with a real user_id when auth lands."""
+    """A user-watched product.
+
+    Two ways to own a watch:
+      - ``client_id`` (anonymous, scoped to one browser/device) -- the original
+        flow, kept so logged-out users still work.
+      - ``user_id`` (signed in via email magic link) -- watches survive across
+        browsers and can be migrated from anon on first login.
+
+    Exactly one of the two is non-null at any moment.
+    """
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    client_id: str = Field(index=True)
+    client_id: Optional[str] = Field(default=None, index=True)
+    user_id: Optional[int] = Field(default=None, index=True, foreign_key="user.id")
     slug: str = Field(index=True)
     name: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -125,8 +132,74 @@ class Watch(SQLModel, table=True):
     new_since_seen: int = 0
 
 
+class User(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True, unique=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MagicLinkToken(SQLModel, table=True):
+    """One-time-use signed token used to verify ownership of an email address.
+
+    The token itself is also signed (``itsdangerous``) so it can't be forged
+    without our secret, but we still write it to the DB so we can mark it
+    used and prevent replay.
+    """
+
+    token: str = Field(primary_key=True)
+    email: str = Field(index=True)
+    client_id: Optional[str] = None  # to migrate anon watches on first login
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime
+    used_at: Optional[datetime] = None
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
+    # SQLModel.create_all doesn't add new columns to existing tables, so any
+    # pre-auth Watch rows are missing user_id. Idempotent ALTER for SQLite.
+    if _db_file is not None:
+        with sqlite3.connect(str(_db_file)) as conn:
+            info = list(conn.execute("PRAGMA table_info(watch)"))
+            cols = {row[1] for row in info}
+            if "user_id" not in cols:
+                conn.execute("ALTER TABLE watch ADD COLUMN user_id INTEGER")
+                conn.commit()
+            # SQLite can't DROP NOT NULL in-place, so if the existing
+            # client_id column is still NOT NULL we rebuild the table.
+            # `notnull` is column index 3 in PRAGMA table_info.
+            client_id_notnull = any(
+                row[1] == "client_id" and row[3] == 1 for row in info
+            )
+            if client_id_notnull:
+                conn.executescript(
+                    """
+                    CREATE TABLE watch_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        client_id VARCHAR,
+                        user_id INTEGER,
+                        slug VARCHAR NOT NULL,
+                        name VARCHAR NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        last_checked_at DATETIME NOT NULL,
+                        last_study_count INTEGER NOT NULL DEFAULT 0,
+                        has_new BOOLEAN NOT NULL DEFAULT 0,
+                        new_since_seen INTEGER NOT NULL DEFAULT 0
+                    );
+                    INSERT INTO watch_new
+                        (id, client_id, user_id, slug, name, created_at,
+                         last_checked_at, last_study_count, has_new, new_since_seen)
+                    SELECT id, client_id, NULL, slug, name, created_at,
+                           last_checked_at, last_study_count, has_new, new_since_seen
+                    FROM watch;
+                    DROP TABLE watch;
+                    ALTER TABLE watch_new RENAME TO watch;
+                    CREATE INDEX ix_watch_client_id ON watch (client_id);
+                    CREATE INDEX ix_watch_user_id ON watch (user_id);
+                    CREATE INDEX ix_watch_slug ON watch (slug);
+                    """
+                )
+                conn.commit()
 
 
 def session() -> Session:
