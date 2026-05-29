@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>StudyEvaluator</h1>
+      <a id="opts" href="#">settings</a>
+    </header>
+    <main>
+      <label for="claim">Check a claim</label>
+      <textarea
+        id="claim"
+        rows="3"
+        placeholder="e.g. collagen improves skin elasticity"
+      ></textarea>
+      <button id="go">Fact-check</button>
+      <div id="status" hidden></div>
+      <div id="result" hidden></div>
+      <p id="hint">
+        Or open this product's verdict in the full app:
+        <a id="openApp" href="#" target="_blank">studyevaluator</a>
+      </p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

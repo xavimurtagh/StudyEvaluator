@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>StudyEvaluator settings</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body { width: 480px; }
+      .row { margin: 10px 0; }
+      input[type=text] { width: 100%; padding: 6px 8px; border: 1px solid #e7e5e4; border-radius: 6px; }
+      .saved { color: #14532d; font-size: 12px; margin-top: 6px; }
+      fieldset { border: 1px solid #e7e5e4; border-radius: 6px; padding: 8px 12px; }
+      legend { font-size: 12px; color: #78716c; }
+      label { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+    </style>
+  </head>
+  <body>
+    <header><h1>StudyEvaluator</h1></header>
+    <main>
+      <div class="row">
+        <label for="api">API base URL</label>
+        <input type="text" id="api" placeholder="http://localhost:8001" />
+      </div>
+      <div class="row">
+        <label for="fe">App URL</label>
+        <input type="text" id="fe" placeholder="http://localhost:3000" />
+      </div>
+      <fieldset class="row">
+        <legend>Auto-detect on these sites</legend>
+        <label><input type="checkbox" id="enable" /> Enable auto-detection</label>
+        <label><input type="checkbox" data-host="tiktok.com" /> tiktok.com</label>
+        <label><input type="checkbox" data-host="instagram.com" /> instagram.com</label>
+        <label><input type="checkbox" data-host="reddit.com" /> reddit.com</label>
+        <label><input type="checkbox" data-host="twitter.com" /> twitter.com</label>
+        <label><input type="checkbox" data-host="x.com" /> x.com</label>
+        <label><input type="checkbox" data-host="youtube.com" /> youtube.com</label>
+      </fieldset>
+      <button id="save">Save</button>
+      <div id="saved" class="saved" hidden>Saved.</div>
+      <p style="font-size:11px;color:#78716c;margin-top:14px;">
+        Privacy: the extension only sends a short snippet (the highlighted
+        term or your typed claim) to the API. Page content is never
+        transmitted.
+      </p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>

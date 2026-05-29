@@ -1,0 +1,56 @@
+.se-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fafaf9;
+  color: #0c0a09;
+  border: 1px solid #d6d3d1;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  cursor: pointer;
+  vertical-align: middle;
+  text-decoration: none;
+  line-height: 1.1;
+}
+.se-badge:hover { border-color: #0c0a09; }
+.se-badge::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f59e0b;
+}
+
+.se-overlay {
+  position: fixed;
+  z-index: 2147483647;
+  width: 320px;
+  background: white;
+  color: #0c0a09;
+  border: 1px solid #e7e5e4;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  line-height: 1.4;
+}
+.se-overlay h3 { margin: 0 0 4px; font-size: 13px; }
+.se-overlay .se-grade {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; margin-bottom: 6px;
+}
+.se-overlay .se-grade.strong       { background: #dcfce7; color: #14532d; }
+.se-overlay .se-grade.moderate     { background: #ecfccb; color: #3f6212; }
+.se-overlay .se-grade.weak         { background: #fef9c3; color: #713f12; }
+.se-overlay .se-grade.insufficient { background: #f5f5f4; color: #44403c; }
+.se-overlay .se-grade.contradicted { background: #fee2e2; color: #7f1d1d; }
+.se-overlay a { color: #0c0a09; text-decoration: underline; font-size: 12px; }
+.se-overlay p { margin: 4px 0; color: #44403c; }
+.se-close {
+  position: absolute; top: 4px; right: 8px; background: none;
+  border: none; color: #78716c; cursor: pointer; font-size: 16px;
+}
