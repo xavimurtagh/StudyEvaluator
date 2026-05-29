@@ -12,11 +12,16 @@ const CREDS: RequestCredentials = "include";
 export async function submitSearch(
   query: string,
   claims?: string[],
+  maxStudies?: number,
 ): Promise<JobStatus> {
   const res = await fetch(`${API}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, claims }),
+    body: JSON.stringify({
+      query,
+      claims,
+      ...(maxStudies ? { max_studies: maxStudies } : {}),
+    }),
     credentials: CREDS,
   });
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);

@@ -14,12 +14,29 @@ const SAMPLES = [
   "creatine",
   "retinol",
   "magnesium for sleep",
+  "fish oil",
+  "berberine",
+  "turmeric",
+  "NMN",
+  "ozempic",
+  "vitamin D",
+  "melatonin",
+  "sunscreen",
+  "apple cider vinegar",
+  "lion's mane",
 ];
 
 const CLAIM_SAMPLES = [
   "Collagen supplements regrow hair",
   "Ashwagandha reduces stress",
   "Magnesium helps with sleep",
+  "Berberine works like Ozempic",
+  "Turmeric reduces inflammation",
+  "Fish oil prevents heart attacks",
+  "Apple cider vinegar aids weight loss",
+  "Lion's mane improves memory",
+  "NMN slows aging",
+  "Sunscreen prevents skin cancer",
 ];
 
 type Mode = "product" | "claim";
@@ -28,6 +45,7 @@ export default function Home() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("product");
   const [q, setQ] = useState("");
+  const [maxStudies, setMaxStudies] = useState(75);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<ProductListEntry[]>([]);
@@ -40,7 +58,7 @@ export default function Home() {
     setError(null);
     setLoading(true);
     try {
-      const job = await submitSearch(query);
+      const job = await submitSearch(query, undefined, maxStudies);
       if (job.state === "complete" && job.slug) {
         router.push(`/product/${job.slug}`);
       } else if (job.slug) {
@@ -142,6 +160,29 @@ export default function Home() {
               : "Fact-check"}
           </button>
         </form>
+
+        {mode === "product" && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+            <label htmlFor="maxs">Studies to analyze</label>
+            <select
+              id="maxs"
+              value={maxStudies}
+              onChange={(e) => setMaxStudies(Number(e.target.value))}
+              disabled={loading}
+              className="rounded-md border border-line bg-white px-2 py-1"
+            >
+              <option value={25}>25 (fast)</option>
+              <option value={50}>50</option>
+              <option value={75}>75</option>
+              <option value={150}>150</option>
+              <option value={300}>300</option>
+              <option value={500}>500 (slowest, biggest corpus)</option>
+            </select>
+            <span className="text-xs">
+              Bigger corpora give more reliable verdicts but take longer.
+            </span>
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-700">{error}</p>}
 

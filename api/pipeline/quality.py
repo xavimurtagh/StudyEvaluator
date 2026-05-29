@@ -317,15 +317,23 @@ class MLQualityScorer:
         if self.model is None:
             return self.fallback.score(s)
         x = featurize(s).reshape(1, -1)
-        proba = float(self.model.predict_proba(x)[0, 1])
+        # The model is a regressor returning a 0-1 quality score. Older
+        # classifier artifacts (predict_proba) are auto-detected and
+        # converted to the same shape for back-compat.
+        if hasattr(self.model, "predict_proba"):
+            pred = float(self.model.predict_proba(x)[0, 1])
+        else:
+            pred = float(self.model.predict(x)[0])
+        pred = max(0.0, min(1.0, pred))
         # We still get subscores from the rubric so the UI has reasons -- the
         # ML model only overrides the headline number.
         base = self.fallback.score(s)
+        if s.retracted:
+            pred = 0.0
         return QualityAssessment(
-            score=proba,
+            score=pred,
             subscores=base.subscores,
-            reasons=base.reasons
-            + [f"ML model overrode headline score: {proba:.2f}"],
+            reasons=base.reasons + [f"ML model headline score: {pred:.2f}"],
             model_version=self.version,
         )
 

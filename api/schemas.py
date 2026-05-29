@@ -170,7 +170,7 @@ class SearchRequest(BaseModel):
             "pipeline auto-derives candidate claims from the literature."
         ),
     )
-    max_studies: int = Field(default=25, ge=5, le=500)
+    max_studies: int = Field(default=75, ge=5, le=500)
 
 
 class JobStatus(BaseModel):

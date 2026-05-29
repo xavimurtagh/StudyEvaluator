@@ -19,9 +19,9 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import classification_report, roc_auc_score
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.model_selection import KFold, cross_val_score
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -126,44 +126,50 @@ def _rand_study(rng: random.Random, band: str) -> ExtractedStudy:
 
 
 def build_dataset() -> tuple[np.ndarray, np.ndarray]:
+    """Synthetic studies labeled with the *continuous* rubric score.
+
+    Previously we labeled binary (rubric>=0.6) which forced the classifier
+    to output probabilities clustered near 0/1 -- in production that made
+    every study look either 99% or 1%. Regressing on the rubric's actual
+    0-1 score preserves nuance: a small under-blinded RCT lands in the
+    middle instead of being binned as "high" or "low".
+    """
     rng = random.Random(SEED)
     rubric = RubricQualityScorer()
     X: list[np.ndarray] = []
-    y: list[int] = []
+    y: list[float] = []
     for band in ("high", "mid", "low"):
         for _ in range(N_PER_BAND):
             s = _rand_study(rng, band)
             X.append(featurize(s))
-            # Binary target: rubric >= 0.6 is "high quality." Using the rubric
-            # as ground truth means the ML model learns its priors; the value
-            # add is interaction handling, not relabelling.
-            y.append(1 if rubric.score(s).score >= 0.6 else 0)
-    return np.vstack(X), np.array(y, dtype=np.int8)
+            y.append(rubric.score(s).score)
+    return np.vstack(X), np.array(y, dtype=np.float32)
 
 
 def main() -> int:
     print(f"Building dataset (seed={SEED}, {N_PER_BAND}/band)...")
     X, y = build_dataset()
-    pos = int(y.sum())
-    print(f"  shape={X.shape}  positives={pos}  negatives={len(y) - pos}")
+    print(f"  shape={X.shape}  mean={y.mean():.3f}  std={y.std():.3f}")
 
-    model = GradientBoostingClassifier(
-        n_estimators=200,
+    model = GradientBoostingRegressor(
+        n_estimators=300,
         max_depth=3,
         learning_rate=0.05,
         random_state=SEED,
     )
 
-    print("5-fold CV (AUC)...")
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
-    aucs = cross_val_score(model, X, y, cv=skf, scoring="roc_auc")
-    print(f"  AUC mean={aucs.mean():.3f} std={aucs.std():.3f} folds={aucs.round(3)}")
+    print("5-fold CV (R^2 and MAE)...")
+    kf = KFold(n_splits=5, shuffle=True, random_state=SEED)
+    r2s = cross_val_score(model, X, y, cv=kf, scoring="r2")
+    maes = -cross_val_score(model, X, y, cv=kf, scoring="neg_mean_absolute_error")
+    print(f"  R^2 mean={r2s.mean():.3f} std={r2s.std():.3f}")
+    print(f"  MAE mean={maes.mean():.3f} std={maes.std():.3f}")
 
     print("Fitting on full dataset...")
     model.fit(X, y)
-    train_auc = roc_auc_score(y, model.predict_proba(X)[:, 1])
-    print(f"  Train AUC={train_auc:.3f}")
-    print(classification_report(y, model.predict(X), digits=3))
+    preds = np.clip(model.predict(X), 0.0, 1.0)
+    print(f"  Train R^2={r2_score(y, preds):.3f}  MAE={mean_absolute_error(y, preds):.3f}")
+    print(f"  Pred range [{preds.min():.2f}, {preds.max():.2f}]  mean={preds.mean():.2f}")
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, MODEL_PATH)
