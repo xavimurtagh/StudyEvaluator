@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { GradePill } from "./GradePill";
+import { EvidenceBar } from "./EvidenceBar";
 import type {
   ClaimEvidenceLink,
   ClaimVerdict,
@@ -59,6 +60,12 @@ export function ClaimCard({
           <strong className="text-ink">{con.length}</strong> contradicting
         </span>
       </div>
+
+      <EvidenceBar
+        supporting={sup}
+        contradicting={con}
+        studiesByPmid={studiesByPmid}
+      />
 
       <button
         onClick={() => setOpen((o) => !o)}

@@ -7,7 +7,15 @@ import Link from "next/link";
 import { ClaimCard } from "@/components/ClaimCard";
 import { GradePill } from "@/components/GradePill";
 import { RedFlags } from "@/components/RedFlags";
+import { ShareButton } from "@/components/ShareButton";
+import { SkeletonVerdict } from "@/components/SkeletonVerdict";
 import { StudyCard } from "@/components/StudyCard";
+import {
+  EMPTY_FILTERS,
+  StudyFilters,
+  StudyFilterState,
+  applyFilters,
+} from "@/components/StudyFilters";
 import { WatchButton } from "@/components/WatchButton";
 import { getJob, getProduct } from "@/lib/api";
 import { GRADE_BLURB } from "@/lib/format";
@@ -24,6 +32,7 @@ export default function ProductPage() {
   const [job, setJob] = useState<JobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<"quality" | "year" | "design">("quality");
+  const [filters, setFilters] = useState<StudyFilterState>(EMPTY_FILTERS);
 
   // Initial product fetch.
   useEffect(() => {
@@ -77,7 +86,7 @@ export default function ProductPage() {
 
   const sortedStudies = useMemo(() => {
     if (!verdict) return [];
-    const a = [...verdict.studies];
+    const a = applyFilters(verdict.studies, filters);
     a.sort((x, y) => {
       if (sort === "quality") return y.quality.score - x.quality.score;
       if (sort === "year")
@@ -85,7 +94,7 @@ export default function ProductPage() {
       return x.extracted.design.localeCompare(y.extracted.design);
     });
     return a;
-  }, [verdict, sort]);
+  }, [verdict, sort, filters]);
 
   if (error) {
     return (
@@ -100,7 +109,12 @@ export default function ProductPage() {
   }
 
   if (!verdict) {
-    return <LoadingState job={job} />;
+    return (
+      <SkeletonVerdict
+        progress={job?.progress ?? 0.1}
+        message={job?.message}
+      />
+    );
   }
 
   return (
@@ -117,7 +131,10 @@ export default function ProductPage() {
             </h1>
             <GradePill grade={verdict.overall_grade} />
           </div>
-          <WatchButton slug={verdict.slug} />
+          <div className="flex flex-wrap items-center gap-2">
+            <WatchButton slug={verdict.slug} />
+            <ShareButton />
+          </div>
         </div>
         <p className="text-lg text-muted">{verdict.summary}</p>
         <p className="text-sm text-muted">
@@ -156,9 +173,12 @@ export default function ProductPage() {
       <section className="space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-xl font-semibold">
-            All studies analyzed ({verdict.studies.length})
+            All studies analyzed ({sortedStudies.length}
+            {sortedStudies.length !== verdict.studies.length &&
+              ` of ${verdict.studies.length}`}
+            )
           </h2>
-          <label className="text-sm text-muted">
+          <label className="text-sm text-muted print:hidden">
             Sort by{" "}
             <select
               value={sort}
@@ -171,10 +191,20 @@ export default function ProductPage() {
             </select>
           </label>
         </div>
+        <StudyFilters
+          studies={verdict.studies}
+          state={filters}
+          onChange={setFilters}
+        />
         <div className="space-y-3">
           {sortedStudies.map((s) => (
             <StudyCard key={s.extracted.pmid} s={s} />
           ))}
+          {sortedStudies.length === 0 && (
+            <p className="rounded-md border border-line bg-white p-4 text-sm text-muted">
+              No studies match the current filters.
+            </p>
+          )}
         </div>
       </section>
 
@@ -197,19 +227,3 @@ export default function ProductPage() {
   );
 }
 
-function LoadingState({ job }: { job: JobStatus | null }) {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Analyzing...</h1>
-      <p className="text-muted">
-        {job?.message ?? "Searching PubMed and scoring the studies..."}
-      </p>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-stone-100">
-        <div
-          className="h-2 rounded-full bg-ink transition-all"
-          style={{ width: `${Math.round((job?.progress ?? 0.1) * 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}

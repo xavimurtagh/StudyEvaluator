@@ -20,3 +20,13 @@ body {
 .severity-info     { @apply bg-blue-50 text-blue-900 ring-1 ring-blue-200; }
 .severity-warning  { @apply bg-amber-50 text-amber-900 ring-1 ring-amber-200; }
 .severity-critical { @apply bg-red-50 text-red-900 ring-1 ring-red-200; }
+
+@media print {
+  html, body { background: white !important; color: black !important; }
+  nav, header, footer button, .print-hidden { display: none !important; }
+  a { color: black !important; text-decoration: none !important; }
+  article { break-inside: avoid; }
+  .ring-1, [class*="ring-"] { box-shadow: none !important; }
+  details { display: block !important; }
+  details > summary { list-style: none; }
+}
