@@ -111,7 +111,7 @@ class ExtractedStudy(BaseModel):
 
 class ExtractedFinding(BaseModel):
     text: str
-    direction: Literal["positive", "null", "negative"] = "positive"
+    direction: Literal["positive", "null", "negative", "inconclusive"] = "positive"
     effect_size: str | None = Field(
         default=None,
         description=(

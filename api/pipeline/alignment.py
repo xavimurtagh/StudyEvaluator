@@ -153,5 +153,10 @@ class AlignmentScorer:
             return AlignmentLabel.SUPPORTS
         if direction == "negative":
             return AlignmentLabel.CONTRADICTS
-        # 'null' findings contradict "X improves Y" style claims.
+        if direction == "inconclusive":
+            # Sentence credits something OTHER than the intervention
+            # (placebo / another factor). It's not evidence either way.
+            return AlignmentLabel.UNRELATED
+        # 'null' findings ("no significant difference") contradict
+        # "X improves Y" style claims -- absence of effect IS evidence.
         return AlignmentLabel.CONTRADICTS

@@ -86,3 +86,102 @@ def test_null_finding_extracted_for_meta_analysis():
     study = extract(rec)
     # The meta-analysis explicitly reports a null result on hair growth.
     assert any(f.direction in ("null", "negative") for f in study.findings)
+
+
+# --- Attribution-aware finding direction -----------------------------------
+
+from api.pipeline.extract import extract_findings
+
+
+def test_placebo_attribution_demotes_positive_to_inconclusive():
+    """Real example from a magnesium study: the sentence says the placebo
+    improved sleep, not magnesium. Reading this as a positive finding for
+    magnesium is wrong -- it should be inconclusive."""
+    abstract = (
+        "We randomized 100 older adults to magnesium or placebo for 7 weeks. "
+        "Because dietary magnesium intake did not change during the experimental "
+        "period, another factor, possibly a placebo effect, improved sleep "
+        "quality, which resulted in increased erythrocyte magnesium."
+    )
+    findings = extract_findings(abstract)
+    # The "did not change" sentence is its own finding (null).
+    nulls = [f for f in findings if f.direction == "null"]
+    inconclusives = [f for f in findings if f.direction == "inconclusive"]
+    assert inconclusives, f"expected an inconclusive finding, got {findings}"
+    # The "another factor / placebo effect / improved" sentence must NOT be
+    # tagged positive.
+    positives = [f for f in findings if f.direction == "positive"]
+    assert not any("placebo effect" in p.text.lower() for p in positives)
+
+
+def test_did_not_change_is_now_a_null_hint():
+    findings = extract_findings(
+        "Dietary intake of the supplement did not change during the trial."
+    )
+    assert findings and findings[0].direction == "null"
+
+
+def test_genuine_positive_still_works():
+    findings = extract_findings(
+        "Supplementation significantly improved skin elasticity (p < 0.001)."
+    )
+    assert findings and findings[0].direction == "positive"
+
+
+def test_rather_than_demotes_to_inconclusive():
+    findings = extract_findings(
+        "Outcomes improved due to lifestyle changes rather than the supplement."
+    )
+    assert findings and findings[0].direction == "inconclusive"
+
+
+# --- Alignment routing of inconclusive findings ----------------------------
+
+from api.pipeline.alignment import AlignmentScorer
+from api.schemas import AlignmentLabel, ExtractedFinding, ExtractedStudy, StudyDesign
+
+
+def test_inconclusive_finding_routes_to_unrelated():
+    study = ExtractedStudy(
+        pmid="x1",
+        title="Magnesium supplementation and sleep quality",
+        abstract=(
+            "We randomized 100 older adults to magnesium or placebo. Because "
+            "dietary magnesium intake did not change during the experimental "
+            "period, another factor, possibly a placebo effect, improved sleep "
+            "quality."
+        ),
+        design=StudyDesign.RCT,
+        findings=[
+            ExtractedFinding(
+                text=(
+                    "another factor, possibly a placebo effect, improved sleep "
+                    "quality"
+                ),
+                direction="inconclusive",
+            ),
+        ],
+    )
+    scorer = AlignmentScorer()
+    scorer.fit_corpus([study])
+    link = scorer.classify("magnesium improves sleep", study)
+    assert link.alignment == AlignmentLabel.UNRELATED
+
+
+def test_genuine_null_still_contradicts():
+    study = ExtractedStudy(
+        pmid="x2",
+        title="Magnesium supplementation and sleep quality",
+        abstract="No significant difference in sleep quality between groups.",
+        design=StudyDesign.RCT,
+        findings=[
+            ExtractedFinding(
+                text="No significant difference in sleep quality between groups.",
+                direction="null",
+            ),
+        ],
+    )
+    scorer = AlignmentScorer()
+    scorer.fit_corpus([study])
+    link = scorer.classify("magnesium improves sleep", study)
+    assert link.alignment == AlignmentLabel.CONTRADICTS

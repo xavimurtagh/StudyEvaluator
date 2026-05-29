@@ -261,6 +261,12 @@ NULL_HINTS = (
     "no significant",
     "no statistically significant",
     "did not differ",
+    "did not change",
+    "did not improve",
+    "did not increase",
+    "did not reduce",
+    "did not decrease",
+    "no improvement",
     "no effect",
     "not associated",
     "non-significant",
@@ -271,6 +277,27 @@ NEGATIVE_HINTS = (
     "adverse",
     "harmful",
     "deteriorat",
+)
+
+# Phrases that credit something OTHER than the intervention for a positive
+# outcome. When one of these co-occurs with a POSITIVE_HINT in the same
+# sentence, the apparent positive finding is actually attributing the effect
+# elsewhere -- treat it as null evidence for the claim. Example seen in the
+# wild: "another factor, possibly a placebo effect, improved sleep quality"
+# was being read as a positive finding for magnesium.
+ATTRIBUTION_DEMOTERS = (
+    "placebo effect",
+    "another factor",
+    "other factors",
+    "rather than",
+    "instead of",
+    "could not be attributed",
+    "cannot be attributed",
+    "attributable to placebo",
+    "due to placebo",
+    "not due to",
+    "unrelated to the intervention",
+    "independent of the intervention",
 )
 
 
@@ -326,12 +353,25 @@ def extract_findings(abstract: str) -> list[ExtractedFinding]:
     out: list[ExtractedFinding] = []
     for sent in split_sentences(abstract):
         low = sent.lower()
+        has_pos = any(h in low for h in POSITIVE_HINTS)
+        has_neg = any(h in low for h in NEGATIVE_HINTS)
+        has_null = any(h in low for h in NULL_HINTS)
+        has_attr = any(d in low for d in ATTRIBUTION_DEMOTERS)
+
+        # Attribution check runs first: a sentence with a positive verb whose
+        # subject is "placebo" / "another factor" / "rather than the
+        # intervention" isn't evidence for OR against -- it's inconclusive.
+        # This wins even over a co-present null cue ("did not change") because
+        # the right read is "the trial didn't test the intervention's effect
+        # head-on", not "the intervention failed".
         direction: str | None
-        if any(h in low for h in NEGATIVE_HINTS):
+        if has_pos and has_attr:
+            direction = "inconclusive"
+        elif has_neg:
             direction = "negative"
-        elif any(h in low for h in NULL_HINTS):
+        elif has_null:
             direction = "null"
-        elif any(h in low for h in POSITIVE_HINTS):
+        elif has_pos:
             direction = "positive"
         else:
             continue
