@@ -47,34 +47,67 @@ export default function ProductPage() {
     };
   }, [slug]);
 
-  // Poll job until it finishes, then fetch the verdict.
+  // Stream job updates over SSE. Falls back to polling if EventSource
+  // isn't available (older browsers, server-side render).
   useEffect(() => {
     if (!jobId || jobId === "cached") return;
     if (verdict) return;
     let cancelled = false;
-    let timer: any;
 
-    async function tick() {
+    if (typeof EventSource === "undefined") {
+      let timer: any;
+      const tick = async () => {
+        try {
+          const j = await getJob(jobId!);
+          if (cancelled) return;
+          setJob(j);
+          if (j.state === "complete" && j.slug) {
+            const v = await getProduct(j.slug);
+            if (!cancelled) setVerdict(v);
+          } else if (j.state === "error") {
+            setError(j.message ?? "Analysis failed.");
+          } else {
+            timer = setTimeout(tick, 800);
+          }
+        } catch (e: any) {
+          setError(e.message ?? "Lost connection to the API.");
+        }
+      };
+      tick();
+      return () => {
+        cancelled = true;
+        if (timer) clearTimeout(timer);
+      };
+    }
+
+    const es = new EventSource(`/api/jobs/${jobId}/stream`);
+    es.onmessage = async (ev) => {
+      if (cancelled) return;
       try {
-        const j = await getJob(jobId!);
-        if (cancelled) return;
+        const j: JobStatus = JSON.parse(ev.data);
         setJob(j);
         if (j.state === "complete" && j.slug) {
           const v = await getProduct(j.slug);
           if (!cancelled) setVerdict(v);
+          es.close();
         } else if (j.state === "error") {
           setError(j.message ?? "Analysis failed.");
-        } else {
-          timer = setTimeout(tick, 800);
+          es.close();
         }
-      } catch (e: any) {
-        setError(e.message ?? "Lost connection to the API.");
+      } catch {
+        // ignore malformed messages
       }
-    }
-    tick();
+    };
+    es.onerror = () => {
+      // Browser auto-reconnects on transient errors; only surface if the
+      // stream has actually closed permanently.
+      if (es.readyState === EventSource.CLOSED && !verdict) {
+        setError("Lost connection to the API.");
+      }
+    };
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      es.close();
     };
   }, [jobId, verdict]);
 

@@ -23,6 +23,25 @@ logger = logging.getLogger(__name__)
 
 
 _RUNNING: set[str] = set()
+# Per-job notify events. SSE subscribers wait on these so they wake up
+# immediately when the worker calls _update, instead of polling the DB.
+_EVENTS: dict[str, asyncio.Event] = {}
+
+
+def _notify(job_id: str) -> None:
+    ev = _EVENTS.get(job_id)
+    if ev is not None:
+        ev.set()
+
+
+def event_for(job_id: str) -> asyncio.Event:
+    """Return (creating if needed) the per-job asyncio.Event used to wake
+    SSE subscribers when the job's state changes."""
+    ev = _EVENTS.get(job_id)
+    if ev is None:
+        ev = asyncio.Event()
+        _EVENTS[job_id] = ev
+    return ev
 
 
 def submit(query: str, max_studies: int, claims: list[str] | None) -> str:
@@ -82,6 +101,8 @@ async def _run_job(
         _update(job_id, state="error", message=str(exc))
     finally:
         _RUNNING.discard(job_id)
+        # Final notify so any waiting SSE clients see the terminal state.
+        _notify(job_id)
 
 
 def _update(
@@ -107,6 +128,7 @@ def _update(
         job.updated_at = datetime.utcnow()
         s.add(job)
         s.commit()
+    _notify(job_id)
 
 
 def _save_verdict(verdict) -> None:

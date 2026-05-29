@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from slugify import slugify
 
@@ -47,6 +49,57 @@ def job_status(job_id: str) -> JobStatus:
     if status is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return status
+
+
+@router.get("/jobs/{job_id}/stream")
+async def job_stream(job_id: str) -> StreamingResponse:
+    """Server-Sent Events stream of JobStatus updates.
+
+    The worker fires an asyncio.Event on every state change, so this
+    handler wakes immediately rather than polling. We also emit a
+    keepalive comment every 15s so proxies don't drop the connection.
+    """
+    if jobs.get_status(job_id) is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    async def gen():
+        ev = jobs.event_for(job_id)
+        last_payload: str | None = None
+        # Emit current state immediately so clients connecting late see
+        # something without having to wait for the next stage transition.
+        cur = jobs.get_status(job_id)
+        if cur is not None:
+            last_payload = cur.model_dump_json()
+            yield f"data: {last_payload}\n\n"
+            if cur.state in ("complete", "error"):
+                return
+
+        while True:
+            try:
+                await asyncio.wait_for(ev.wait(), timeout=15.0)
+                ev.clear()
+            except asyncio.TimeoutError:
+                yield ": keepalive\n\n"
+                continue
+
+            status = jobs.get_status(job_id)
+            if status is None:
+                return
+            payload = status.model_dump_json()
+            if payload != last_payload:
+                yield f"data: {payload}\n\n"
+                last_payload = payload
+            if status.state in ("complete", "error"):
+                return
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # disable Nginx buffering
+        },
+    )
 
 
 @router.get("/products/{slug}", response_model=ProductVerdict)
